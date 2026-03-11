@@ -1,200 +1,176 @@
 # Radio Voice FX
 
-Small Windows drag-and-drop tools for turning clean voice recordings into a radio-style sound and adding noise at the beginning and end.
+Cross-platform `ffmpeg` wrapper for turning clean voice recordings into radio-style speech, with optional random intro/outro noise.
 
-This folder contains:
+The repository now contains:
 
-- `radio-filter.bat` - applies a radio-style voice filter.
-- `add_noise.bat` - adds random intro/outro noise and also applies a stronger radio effect.
-- `start/` - WAV files used as the opening noise.
-- `end/` - WAV files used as the ending noise.
+- `cmd/radiofx/` - Go CLI and minimal terminal UI
+- `presets.json` - editable preset definitions
+- `start/` - WAV files used as opening noise
+- `end/` - WAV files used as ending noise
+- `windows/` - Windows drag-and-drop wrappers for presets
+- `legacy/` - old hardcoded batch scripts
 
-## What This Tool Does
+## Requirements
 
-These scripts are meant for quick offline processing of voice recordings with `ffmpeg`.
+- `ffmpeg` must be installed and available in `PATH`
+- Go is only required if you want to build `radiofx` from source
 
-Typical workflow:
+Check `ffmpeg`:
 
-1. Take your clean audio recording.
-2. Drag and drop it onto `radio-filter.bat` to get a distorted radio-style voice.
-3. Drag and drop it onto `add_noise.bat` to get extra noise at the beginning and the end.
-
-You can drop one file or multiple files at once onto either script.
-
-## Requirement
-
-You must have `ffmpeg` installed and available in your system `PATH`.
-
-To check that it is installed, open Command Prompt and run:
-
-```bat
+```bash
 ffmpeg -version
 ```
 
-If Windows says the command is not recognized, install `ffmpeg` first and make sure the `ffmpeg.exe` location is added to `PATH`.
+## Usage
 
-## How To Use
+Start the minimal terminal UI:
 
-### Option 1: Create a Radio-Style Voice
-
-Use `radio-filter.bat`.
-
-Steps:
-
-1. Prepare one or more audio files.
-2. Select the files in Explorer.
-3. Drag them onto `radio-filter.bat`.
-4. Wait until processing finishes.
-
-Output:
-
-- A new WAV file is created next to each source file.
-- The output name is:
-
-```text
-original_name_filtered.wav
+```bash
+./radiofx
 ```
 
-Example:
+List presets:
+
+```bash
+./radiofx list-presets
+```
+
+Apply one preset in non-interactive mode:
+
+```bash
+./radiofx apply -preset clean_radio -mode filter voice.wav
+./radiofx apply -preset harsh_digital -mode noise voice.wav
+```
+
+The tool writes output next to the source file.
+
+## Windows Drag-And-Drop
+
+If you want the old Explorer workflow, build `radiofx.exe` in the repository root. The drag-and-drop wrappers live in `windows/` and call `..\radiofx.exe`.
+
+Available wrappers:
+
+- `windows/clean-radio-filter.bat`
+- `windows/walkie-talkie-filter.bat`
+- `windows/harsh-digital-filter.bat`
+- `windows/noisy-transmission-filter.bat`
+- `windows/broken-signal-filter.bat`
+- `windows/clean-radio-noise.bat`
+- `windows/walkie-talkie-noise.bat`
+- `windows/harsh-digital-noise.bat`
+- `windows/noisy-transmission-noise.bat`
+- `windows/broken-signal-noise.bat`
+
+These wrappers are thin launchers around `radiofx.exe apply ... %*`.
+They do not duplicate the filter logic.
+
+Example output names when using drag-and-drop:
+
+- `voice.wav` on `windows/clean-radio-filter.bat` -> `voice_clean_radio.wav`
+- `voice.wav` on `windows/walkie-talkie-filter.bat` -> `voice_walkie.wav`
+- `voice.wav` on `windows/harsh-digital-noise.bat` -> `voice_harsh_noise.wav`
+
+## Presets
+
+Presets live in `presets.json`.
+
+Current defaults:
+
+- `clean_radio` - light, clear radio voice
+- `walkie_talkie` - classic handheld comms tone
+- `harsh_digital` - stronger digital distortion with bit crushing
+- `noisy_transmission` - more static and lower fidelity
+- `broken_signal` - very narrow, damaged-sounding communication
+
+Each preset defines voice-processing parameters such as:
+
+- high-pass and low-pass cutoff
+- output sample rate
+- mono/stereo format
+- compression
+- bit crushing
+- mid boost
+- noise volume
+- output filename suffixes
+
+## Interactive Flow
+
+The built-in terminal UI is intentionally minimal and dependency-free:
+
+1. Choose mode: `filter` or `noise`
+2. Choose preset from `presets.json`
+3. Provide one or more input files
+4. Let `radiofx` invoke `ffmpeg`
+
+If files are passed as CLI arguments, the UI uses them directly:
+
+```bash
+./radiofx tui voice.wav other.wav
+```
+
+## Modes
+
+### `filter`
+
+Processes the voice only.
+
+Example output:
 
 ```text
 voice.wav -> voice_filtered.wav
 ```
 
-What the script does:
+### `noise`
 
-- cuts low frequencies with a high-pass filter at 300 Hz
-- cuts high frequencies with a low-pass filter at 3000 Hz
-- reduces the sample rate to 11025 Hz
-- applies dynamic compression
-- slightly boosts volume
+Picks one random WAV from `start/` and one random WAV from `end/`, then concatenates:
 
-Result:
+1. start noise
+2. processed voice
+3. end noise
 
-- narrower frequency range
-- more compressed and less natural tone
-- closer to a walkie-talkie / radio / transmission sound
-
-### Option 2: Add Noise at the Beginning and End
-
-Use `add_noise.bat`.
-
-Steps:
-
-1. Prepare one or more audio files.
-2. Drag them onto `add_noise.bat`.
-3. The script randomly picks one WAV from `start/` and one WAV from `end/`.
-4. It places the start noise before the voice and the end noise after the voice.
-
-Output:
-
-- A new WAV file is created next to each source file.
-- The output name is:
+Example output:
 
 ```text
-original_name_w_noise.wav
-```
-
-Example:
-
-```text
-voice.wav -> voice_w_noise.wav
-```
-
-What this script does:
-
-- adds a random opening noise from the `start/` folder
-- adds a random closing noise from the `end/` folder
-- lowers the noise volume to `0.3`
-- converts audio to mono / 44100 Hz for the final mix
-- applies radio-style EQ to the voice
-- applies bit crushing for a rougher, dirtier transmission sound
-
-Important note:
-
-`add_noise.bat` does not only add noise. It also processes the main voice so the result sounds more like a noisy radio transmission.
-
-## Batch Processing
-
-Both scripts support multiple files.
-
-That means you can select several recordings and drag all of them onto the `.bat` file in one action. The script will process them one by one.
-
-## File Structure
-
-```text
-radio-voice-fx/
-├─ radio-filter.bat
-├─ add_noise.bat
-├─ start/
-│  └─ *.wav
-└─ end/
-   └─ *.wav
+voice.wav -> voice_harsh_digital_w_noise.wav
 ```
 
 ## Notes
 
-- The noise clips inside `start/` and `end/` should stay in WAV format.
-- If one of these folders is empty, `add_noise.bat` will stop with an error.
-- The processed files are saved in the same folder as the original source file.
-- Original files are not overwritten by default because each script creates a new output filename.
+- `start/` and `end/` must contain `.wav` files for `noise` mode
+- output files are never written over the original input
+- `presets.json` is searched in the current directory first, then next to the executable
+- wrapper `.bat` files in `windows/` require `radiofx.exe` in the repository root
+- old hardcoded scripts were moved to `legacy/`
 
-## Recommended Workflow
+## Build
 
-If you want a simple radio-style voice:
+Build for the current platform:
 
-- use `radio-filter.bat`
+```bash
+go build ./cmd/radiofx
+```
 
-If you want radio voice with static/noise before and after:
+Cross-compile examples:
 
-- use `add_noise.bat`
-
-For fast usage, the simplest explanation is:
-
-- drag your recording onto `radio-filter.bat` to get a radio-like distorted voice
-- drag your recording onto `add_noise.bat` to get noise at the beginning and end
+```bash
+GOOS=windows GOARCH=amd64 go build -o dist/radiofx.exe ./cmd/radiofx
+GOOS=linux GOARCH=amd64 go build -o dist/radiofx-linux ./cmd/radiofx
+```
 
 ## Troubleshooting
 
 ### `ffmpeg` is not recognized
 
-Cause:
-
-- `ffmpeg` is not installed or not added to `PATH`
-
-Fix:
-
 - install `ffmpeg`
-- add it to Windows `PATH`
-- reopen Command Prompt or Explorer and try again
+- add it to `PATH`
+- reopen the terminal
 
-### No output file was created
+### `noise` mode says no WAV files were found
 
-Cause:
+- add `.wav` clips into both `start/` and `end/`
 
-- unsupported input file
-- `ffmpeg` failed during conversion
+### Processing fails on one file
 
-Fix:
-
-- try processing the file from Command Prompt to see the error message
-- make sure the input file is a valid audio file
-
-### `add_noise.bat` says no WAV files were found
-
-Cause:
-
-- `start/` or `end/` is empty
-
-Fix:
-
-- place WAV noise files inside both folders
-
-## Summary
-
-This is a simple drag-and-drop Windows toolkit for voice post-processing:
-
-- `radio-filter.bat` creates a filtered radio voice
-- `add_noise.bat` creates a more aggressive radio effect with random noise at the start and end
-- `ffmpeg` is required
-- multiple files are supported
+- run the same command in a terminal to inspect the `ffmpeg` error output
+- verify the input file is a readable audio format
