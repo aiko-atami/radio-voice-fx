@@ -3,6 +3,7 @@ package audio
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -122,10 +123,20 @@ func (p *Processor) buildCommand(mode Mode, preset config.Preset, inputPath, out
 }
 
 func buildVoiceFilter(preset config.Preset) string {
-	parts := []string{
-		"highpass=f=" + strconv.Itoa(preset.HighpassHz),
-		"lowpass=f=" + strconv.Itoa(preset.LowpassHz),
-	}
+	return buildVoiceFilterWithFormat(preset, preset.SampleRate, preset.Mono)
+}
+
+func buildVoiceFilterForNoise(preset config.Preset) string {
+	return buildVoiceFilterWithFormat(preset, preset.NoiseSampleRate, preset.NoiseMono)
+}
+
+func buildVoiceFilterWithFormat(preset config.Preset, sampleRate int, mono bool) string {
+	parts := []string{}
+	parts = append(parts, buildTrimFilters(preset)...)
+	parts = append(parts,
+		"highpass=f="+strconv.Itoa(preset.HighpassHz),
+		"lowpass=f="+strconv.Itoa(preset.LowpassHz),
+	)
 
 	if preset.MidBoostHz > 0 && preset.MidBoostWidthHz > 0 && preset.MidBoostGainDB != 0 {
 		parts = append(parts, fmt.Sprintf(
@@ -149,48 +160,88 @@ func buildVoiceFilter(preset config.Preset) string {
 		parts = append(parts, "acrusher="+strings.Join(crusherParts, ":"))
 	}
 
-	parts = append(parts, buildFormatFilter(preset.SampleRate, preset.Mono))
 	if preset.Volume != 1 {
 		parts = append(parts, "volume="+floatString(preset.Volume))
 	}
+
+	parts = append(parts, buildNormalizationFilters(preset)...)
+	parts = append(parts, buildFadeFilters(preset)...)
+	parts = append(parts, buildPaddingFilters(preset)...)
+	parts = append(parts, buildFormatFilter(sampleRate, mono))
 
 	return strings.Join(parts, ",")
 }
 
-func buildVoiceFilterForNoise(preset config.Preset) string {
-	parts := []string{
-		"highpass=f=" + strconv.Itoa(preset.HighpassHz),
-		"lowpass=f=" + strconv.Itoa(preset.LowpassHz),
+func buildTrimFilters(preset config.Preset) []string {
+	if !preset.TrimSilence {
+		return nil
 	}
 
-	if preset.MidBoostHz > 0 && preset.MidBoostWidthHz > 0 && preset.MidBoostGainDB != 0 {
+	trim := fmt.Sprintf(
+		"silenceremove=start_periods=1:start_duration=%s:start_threshold=%s:start_silence=0",
+		durationStringFromMilliseconds(preset.TrimDurationMS),
+		decibelString(preset.TrimThresholdDB),
+	)
+
+	// Reverse twice to apply the same leading-silence trim to the clip tail.
+	return []string{
+		trim,
+		"areverse",
+		trim,
+		"areverse",
+	}
+}
+
+func buildNormalizationFilters(preset config.Preset) []string {
+	parts := []string{}
+
+	if preset.NormalizeLUFS != 0 {
 		parts = append(parts, fmt.Sprintf(
-			"equalizer=f=%d:t=h:w=%d:g=%s",
-			preset.MidBoostHz,
-			preset.MidBoostWidthHz,
-			floatString(preset.MidBoostGainDB),
+			"loudnorm=I=%s:LRA=%s:TP=%s:linear=true",
+			floatString(preset.NormalizeLUFS),
+			floatString(preset.NormalizeLRA),
+			floatString(preset.NormalizeTP),
 		))
 	}
-	if preset.Compand {
-		parts = append(parts, "compand")
-	}
-	if preset.CrusherBits > 0 {
-		crusherParts := []string{"bits=" + strconv.Itoa(preset.CrusherBits)}
-		if preset.CrusherMode != "" {
-			crusherParts = append(crusherParts, "mode="+preset.CrusherMode)
-		}
-		if preset.CrusherAA > 0 {
-			crusherParts = append(crusherParts, "aa="+strconv.Itoa(preset.CrusherAA))
-		}
-		parts = append(parts, "acrusher="+strings.Join(crusherParts, ":"))
+	if preset.LimiterCeilingDB != 0 {
+		parts = append(parts, fmt.Sprintf(
+			"alimiter=limit=%s:attack=%s:release=%s:level=true:latency=true",
+			floatString(linearAmplitudeFromDB(preset.LimiterCeilingDB)),
+			floatString(preset.LimiterAttackMS),
+			floatString(preset.LimiterReleaseMS),
+		))
 	}
 
-	parts = append(parts, buildFormatFilter(preset.NoiseSampleRate, preset.NoiseMono))
-	if preset.Volume != 1 {
-		parts = append(parts, "volume="+floatString(preset.Volume))
-	}
+	return parts
+}
 
-	return strings.Join(parts, ",")
+func buildFadeFilters(preset config.Preset) []string {
+	parts := []string{}
+	if preset.FadeInMS > 0 {
+		parts = append(parts, fmt.Sprintf(
+			"afade=t=in:st=0:d=%s",
+			durationStringFromMilliseconds(preset.FadeInMS),
+		))
+	}
+	if preset.FadeOutMS > 0 {
+		parts = append(parts,
+			"areverse",
+			fmt.Sprintf("afade=t=in:st=0:d=%s", durationStringFromMilliseconds(preset.FadeOutMS)),
+			"areverse",
+		)
+	}
+	return parts
+}
+
+func buildPaddingFilters(preset config.Preset) []string {
+	parts := []string{}
+	if preset.PadStartMS > 0 {
+		parts = append(parts, fmt.Sprintf("adelay=delays=%d:all=1", preset.PadStartMS))
+	}
+	if preset.PadEndMS > 0 {
+		parts = append(parts, fmt.Sprintf("apad=pad_dur=%s", durationStringFromMilliseconds(preset.PadEndMS)))
+	}
+	return parts
 }
 
 func buildNoiseFilter(preset config.Preset) string {
@@ -250,4 +301,16 @@ func suffixForMode(preset config.Preset, mode Mode, override string) string {
 
 func floatString(value float64) string {
 	return strconv.FormatFloat(value, 'f', -1, 64)
+}
+
+func durationStringFromMilliseconds(milliseconds int) string {
+	return floatString(float64(milliseconds) / 1000)
+}
+
+func decibelString(value float64) string {
+	return floatString(value) + "dB"
+}
+
+func linearAmplitudeFromDB(value float64) float64 {
+	return math.Pow(10, value/20)
 }

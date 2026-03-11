@@ -88,8 +88,28 @@ Each preset defines voice-processing parameters such as:
 - compression
 - bit crushing
 - mid boost
+- loudness normalization target
+- limiter ceiling
+- silence trimming threshold/duration
+- start/end padding
+- fade in/out
 - noise volume
 - output filename suffixes
+
+The bundled presets now also enable:
+
+- loudness matching for more even callout volume
+- a safety limiter for peak control
+- edge trimming for leading/trailing silence
+- short fade and pad values so lines start and end more cleanly
+
+Useful optional preset keys:
+
+- `normalize_lufs`, `normalize_lra`, `normalize_tp`
+- `limiter_ceiling_db`, `limiter_attack_ms`, `limiter_release_ms`
+- `trim_silence`, `trim_threshold_db`, `trim_duration_ms`
+- `pad_start_ms`, `pad_end_ms`
+- `fade_in_ms`, `fade_out_ms`
 
 ## Interactive Flow
 
@@ -110,7 +130,7 @@ If files are passed as CLI arguments, the UI uses them directly:
 
 ### `filter`
 
-Processes the voice only.
+Processes the voice only, including any configured trim, fade, padding, normalization, and limiting.
 
 Example output:
 
@@ -125,6 +145,8 @@ Picks one random WAV from `start/` and one random WAV from `end/`, then concaten
 1. start noise
 2. processed voice
 3. end noise
+
+If the preset defines padding, that padding is applied around the processed voice segment. This is useful for leaving a small pause after the intro noise and before the outro noise.
 
 Example output:
 
@@ -163,12 +185,6 @@ Cross-compile examples:
 GOOS=windows GOARCH=amd64 go build -o dist/radiofx.exe ./cmd/radiofx
 GOOS=linux GOARCH=amd64 go build -o dist/radiofx-linux ./cmd/radiofx
 ```
-
-GitHub Actions workflow:
-
-- `.github/workflows/build-cli.yml` builds Windows and Linux artifacts
-- pushing a tag matching `v*` also publishes release assets to GitHub Releases
-- Windows artifacts include `radiofx.exe`, `presets.json`, `start/`, `end/`, and the wrapper `.bat` files in one directory
 
 ## Troubleshooting
 

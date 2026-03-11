@@ -19,26 +19,39 @@ type Config struct {
 }
 
 type Preset struct {
-	Name            string  `json:"name"`
-	Description     string  `json:"description"`
-	HighpassHz      int     `json:"highpass_hz"`
-	LowpassHz       int     `json:"lowpass_hz"`
-	SampleRate      int     `json:"sample_rate"`
-	Mono            bool    `json:"mono"`
-	Compand         bool    `json:"compand"`
-	Volume          float64 `json:"volume"`
-	CrusherBits     int     `json:"crusher_bits"`
-	CrusherMode     string  `json:"crusher_mode"`
-	CrusherAA       int     `json:"crusher_aa"`
-	MidBoostHz      int     `json:"mid_boost_hz"`
-	MidBoostWidthHz int     `json:"mid_boost_width_hz"`
-	MidBoostGainDB  float64 `json:"mid_boost_gain_db"`
-	NoiseVolume     float64 `json:"noise_volume"`
-	NoiseSampleRate int     `json:"noise_sample_rate"`
-	NoiseMono       bool    `json:"noise_mono"`
-	OutputFormat    string  `json:"output_format"`
-	FilterSuffix    string  `json:"filter_suffix"`
-	NoiseSuffix     string  `json:"noise_suffix"`
+	Name             string  `json:"name"`
+	Description      string  `json:"description"`
+	HighpassHz       int     `json:"highpass_hz"`
+	LowpassHz        int     `json:"lowpass_hz"`
+	SampleRate       int     `json:"sample_rate"`
+	Mono             bool    `json:"mono"`
+	Compand          bool    `json:"compand"`
+	Volume           float64 `json:"volume"`
+	CrusherBits      int     `json:"crusher_bits"`
+	CrusherMode      string  `json:"crusher_mode"`
+	CrusherAA        int     `json:"crusher_aa"`
+	MidBoostHz       int     `json:"mid_boost_hz"`
+	MidBoostWidthHz  int     `json:"mid_boost_width_hz"`
+	MidBoostGainDB   float64 `json:"mid_boost_gain_db"`
+	NormalizeLUFS    float64 `json:"normalize_lufs"`
+	NormalizeLRA     float64 `json:"normalize_lra"`
+	NormalizeTP      float64 `json:"normalize_tp"`
+	LimiterCeilingDB float64 `json:"limiter_ceiling_db"`
+	LimiterAttackMS  float64 `json:"limiter_attack_ms"`
+	LimiterReleaseMS float64 `json:"limiter_release_ms"`
+	TrimSilence      bool    `json:"trim_silence"`
+	TrimThresholdDB  float64 `json:"trim_threshold_db"`
+	TrimDurationMS   int     `json:"trim_duration_ms"`
+	PadStartMS       int     `json:"pad_start_ms"`
+	PadEndMS         int     `json:"pad_end_ms"`
+	FadeInMS         int     `json:"fade_in_ms"`
+	FadeOutMS        int     `json:"fade_out_ms"`
+	NoiseVolume      float64 `json:"noise_volume"`
+	NoiseSampleRate  int     `json:"noise_sample_rate"`
+	NoiseMono        bool    `json:"noise_mono"`
+	OutputFormat     string  `json:"output_format"`
+	FilterSuffix     string  `json:"filter_suffix"`
+	NoiseSuffix      string  `json:"noise_suffix"`
 }
 
 func Load(path string) (*Config, error) {
@@ -117,6 +130,30 @@ func (c *Config) applyDefaults() {
 		if c.Presets[i].Volume == 0 {
 			c.Presets[i].Volume = 1
 		}
+		if c.Presets[i].NormalizeLUFS != 0 {
+			if c.Presets[i].NormalizeLRA == 0 {
+				c.Presets[i].NormalizeLRA = 7
+			}
+			if c.Presets[i].NormalizeTP == 0 {
+				c.Presets[i].NormalizeTP = -2
+			}
+		}
+		if c.Presets[i].LimiterCeilingDB != 0 {
+			if c.Presets[i].LimiterAttackMS == 0 {
+				c.Presets[i].LimiterAttackMS = 5
+			}
+			if c.Presets[i].LimiterReleaseMS == 0 {
+				c.Presets[i].LimiterReleaseMS = 50
+			}
+		}
+		if c.Presets[i].TrimSilence {
+			if c.Presets[i].TrimThresholdDB == 0 {
+				c.Presets[i].TrimThresholdDB = -50
+			}
+			if c.Presets[i].TrimDurationMS == 0 {
+				c.Presets[i].TrimDurationMS = 30
+			}
+		}
 	}
 }
 
@@ -133,6 +170,39 @@ func (c *Config) validate() error {
 		}
 		if preset.SampleRate <= 0 {
 			return fmt.Errorf("preset %q must define a positive sample_rate", preset.Name)
+		}
+		if preset.NormalizeLUFS != 0 {
+			if preset.NormalizeLUFS >= 0 {
+				return fmt.Errorf("preset %q must define normalize_lufs below 0", preset.Name)
+			}
+			if preset.NormalizeLRA <= 0 {
+				return fmt.Errorf("preset %q must define a positive normalize_lra when normalize_lufs is set", preset.Name)
+			}
+			if preset.NormalizeTP >= 0 {
+				return fmt.Errorf("preset %q must define normalize_tp below 0 when normalize_lufs is set", preset.Name)
+			}
+		}
+		if preset.LimiterCeilingDB != 0 {
+			if preset.LimiterCeilingDB >= 0 {
+				return fmt.Errorf("preset %q must define limiter_ceiling_db below 0", preset.Name)
+			}
+			if preset.LimiterAttackMS <= 0 || preset.LimiterReleaseMS <= 0 {
+				return fmt.Errorf("preset %q must define positive limiter attack/release values", preset.Name)
+			}
+		}
+		if preset.TrimSilence {
+			if preset.TrimThresholdDB >= 0 {
+				return fmt.Errorf("preset %q must define trim_threshold_db below 0 when trim_silence is enabled", preset.Name)
+			}
+			if preset.TrimDurationMS <= 0 {
+				return fmt.Errorf("preset %q must define a positive trim_duration_ms when trim_silence is enabled", preset.Name)
+			}
+		}
+		if preset.PadStartMS < 0 || preset.PadEndMS < 0 {
+			return fmt.Errorf("preset %q must define non-negative pad durations", preset.Name)
+		}
+		if preset.FadeInMS < 0 || preset.FadeOutMS < 0 {
+			return fmt.Errorf("preset %q must define non-negative fade durations", preset.Name)
 		}
 	}
 	return nil
