@@ -2,11 +2,8 @@ name: Build CLI
 
 on:
   push:
-    branches:
-      - main
     tags:
       - "v*"
-  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -74,7 +71,9 @@ jobs:
       - name: Copy Windows wrappers
         if: matrix.goos == 'windows'
         shell: bash
-        run: cp windows/*.bat "${DIST_DIR}/"
+        run: |
+          mkdir -p "${DIST_DIR}/windows"
+          cp windows/*.bat "${DIST_DIR}/windows/"
 
       - name: Verify artifact layout
         shell: bash
@@ -85,15 +84,16 @@ jobs:
           test -d "${DIST_DIR}/end"
 
           if [ "${{ matrix.goos }}" = "windows" ]; then
-            test -f "${DIST_DIR}/clean-radio-filter.bat"
-            test -f "${DIST_DIR}/walkie-talkie-filter.bat"
-            test -f "${DIST_DIR}/harsh-digital-noise.bat"
+            test -d "${DIST_DIR}/windows"
+            test -f "${DIST_DIR}/windows/clean-radio-filter.bat"
+            test -f "${DIST_DIR}/windows/walkie-talkie-filter.bat"
+            test -f "${DIST_DIR}/windows/harsh-digital-noise.bat"
           fi
 
       - name: Package Linux release archive
         if: matrix.goos == 'linux'
         shell: bash
-        run: tar -C dist -czf "dist/${{ matrix.release_asset }}" "${{ matrix.artifact_name }}"
+        run: tar -C "${DIST_DIR}" -czf "dist/${{ matrix.release_asset }}" .
 
       - name: Package Windows release archive
         if: matrix.goos == 'windows'
@@ -103,7 +103,7 @@ jobs:
           if (Test-Path $archivePath) {
             Remove-Item $archivePath
           }
-          Compress-Archive -Path "${{ env.DIST_DIR }}" -DestinationPath $archivePath
+          Compress-Archive -Path "${{ env.DIST_DIR }}/*" -DestinationPath $archivePath
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6

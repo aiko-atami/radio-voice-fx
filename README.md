@@ -44,6 +44,7 @@ The tool writes output next to the source file.
 ## Windows Drag-And-Drop
 
 If you want the old Explorer workflow, use the batch wrappers from `windows/`.
+In the Windows release archive they are placed in a `windows/` subfolder.
 They look for `radiofx.exe` in the same directory first, then in the parent directory.
 
 Available wrappers:
