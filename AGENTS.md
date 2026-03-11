@@ -83,6 +83,17 @@ For behavior/config changes:
 - confirm `presets.json` still loads
 - confirm README matches the shipped preset keys and commands
 
+## Release Tags
+
+- After completing changes, always check whether the new state should be marked with a Git tag.
+- Create tags only for stable release states worth publishing, installing, or rolling back to. Do not tag every commit, temporary draft, or unfinished work.
+- Use annotated tags, not lightweight tags.
+- Follow `SemVer` with a `v` prefix: `vMAJOR.MINOR.PATCH`.
+- Bump `PATCH` for bug fixes and small compatible improvements.
+- Bump `MINOR` for new backward-compatible features.
+- Bump `MAJOR` for breaking changes or compatibility breaks.
+- If a release tag is appropriate, create the next correct tag that matches the change scope.
+
 ## Local AI Memory
 
 Local agent notes live in `.ai-memory/`.
