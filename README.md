@@ -2,15 +2,6 @@
 
 Cross-platform `ffmpeg` wrapper for turning clean voice recordings into radio-style speech, with optional random intro/outro noise.
 
-The repository now contains:
-
-- `cmd/radiofx/` - Go CLI and minimal terminal UI
-- `presets.json` - editable preset definitions
-- `start/` - WAV files used as opening noise
-- `end/` - WAV files used as ending noise
-- `windows/` - Windows drag-and-drop wrappers for presets
-- `legacy/` - old hardcoded batch scripts
-
 ## Requirements
 
 - `ffmpeg` must be installed and available in `PATH`
@@ -47,7 +38,8 @@ The tool writes output next to the source file.
 
 ## Windows Drag-And-Drop
 
-If you want the old Explorer workflow, build `radiofx.exe` in the repository root. The drag-and-drop wrappers live in `windows/` and call `..\radiofx.exe`.
+If you want the old Explorer workflow, use the batch wrappers from `windows/`.
+They look for `radiofx.exe` in the same directory first, then in the parent directory.
 
 Available wrappers:
 
@@ -140,10 +132,19 @@ voice.wav -> voice_harsh_digital_w_noise.wav
 - `start/` and `end/` must contain `.wav` files for `noise` mode
 - output files are never written over the original input
 - `presets.json` is searched in the current directory first, then next to the executable
-- wrapper `.bat` files in `windows/` require `radiofx.exe` in the repository root
+- wrapper `.bat` files in `windows/` work with `radiofx.exe` either next to the wrapper or in the parent directory
 - old hardcoded scripts were moved to `legacy/`
 
 ## Build
+
+The repository contains:
+
+- `cmd/radiofx/` - Go CLI and minimal terminal UI
+- `presets.json` - editable preset definitions
+- `start/` - WAV files used as opening noise
+- `end/` - WAV files used as ending noise
+- `windows/` - Windows drag-and-drop wrappers for presets
+- `legacy/` - old hardcoded batch scripts
 
 Build for the current platform:
 
@@ -157,6 +158,11 @@ Cross-compile examples:
 GOOS=windows GOARCH=amd64 go build -o dist/radiofx.exe ./cmd/radiofx
 GOOS=linux GOARCH=amd64 go build -o dist/radiofx-linux ./cmd/radiofx
 ```
+
+GitHub Actions workflow:
+
+- `.github/workflows/build-cli.yml` builds Windows and Linux artifacts
+- Windows artifacts include `radiofx.exe`, `presets.json`, `start/`, `end/`, and the wrapper `.bat` files in one directory
 
 ## Troubleshooting
 

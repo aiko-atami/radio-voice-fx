@@ -1,11 +1,12 @@
 @echo off
 setlocal
-set "ROOT=%~dp0.."
-set "BIN=%ROOT%\radiofx.exe"
+set "SCRIPT_DIR=%~dp0"
+set "BIN=%SCRIPT_DIR%radiofx.exe"
+
+if not exist "%BIN%" set "BIN=%SCRIPT_DIR%..\radiofx.exe"
 
 if not exist "%BIN%" (
-    echo Error: "%BIN%" not found.
-    echo Build or copy radiofx.exe into this folder first.
+    echo Error: radiofx.exe not found next to this wrapper or in its parent folder.
     pause
     exit /b 1
 )
