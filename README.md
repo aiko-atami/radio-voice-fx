@@ -1,24 +1,11 @@
 # Radio Voice FX
 
-Cross-platform `ffmpeg` wrapper for turning clean voice recordings into radio-style speech, with optional random intro/outro noise.
+`ffmpeg` wrapper for turning clean voice recordings into radio-style speech, with optional random intro/outro noise.
 
 ## Download
 
-Release builds are published automatically when you push a tag like `v0.1.0`.
-
-Stable download links:
-
 - [Windows x64 ZIP](https://github.com/aiko-atami/radio-voice-fx/releases/latest/download/radiofx-windows-x64.zip)
 - [Linux x64 tar.gz](https://github.com/aiko-atami/radio-voice-fx/releases/latest/download/radiofx-linux-x64.tar.gz)
-
-Create a release:
-
-```bash
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-GitHub will mark the newest non-prerelease tag as the latest release, so `releases/latest/download/...` stays stable and is better than moving a tag like `last`.
 
 ## Requirements
 
